@@ -616,17 +616,15 @@ def _add_data_args(parser):
                        '1) a single data path, 2) multiple datasets in the'
                        'form: dataset1-weight dataset1-path dataset2-weight '
                        'dataset2-path ...')
-    #TODO: added --eval-path and --test-path
     group.add_argument('--eval-path', type=str, default=None,
-                       help='evaluation data path prefix')
+                       help='evaluation data path prefix: only valid when --no-split is asserted')
     group.add_argument('--test-path', type=str, default=None,
-                       help='test data path prefix')
+                       help='test data path prefix: only valid when --no-split is asserted')
     group.add_argument('--split', type=str, default='969, 30, 1',
                        help='Comma-separated list of proportions for training,'
                        ' validation, and test split. For example the split '
                        '`90,5,5` will use 90%% of data for training, 5%% for '
                        'validation and 5%% for test.')
-    #TODO: added --no-split
     group.add_argument('--no-split', action='store_true',
                        help='enables specifying separate eval / test data path')
     group.add_argument('--vocab-file', type=str, default=None,
