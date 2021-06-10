@@ -58,7 +58,7 @@ def get_batch(data_iterator):
     data_b = mpu.broadcast_data(keys, data, datatype)
 
     # Unpack.
-    tokens_ = data_b['text'].long()
+    tokens_ = data_b['text'].long()   # size: [micro_batch_size, seq_len + 1]
     labels = tokens_[:, 1:].contiguous()
     tokens = tokens_[:, :-1].contiguous()
 
@@ -87,13 +87,12 @@ def forward_step(data_iterator, model):
     """Forward step."""
     args = get_args()
     timers = get_timers()
-
     # Get the batch.
     timers('batch-generator').start()
     tokens, labels, loss_mask, attention_mask, position_ids = get_batch(
         data_iterator)
+    # token size = [micro_batch_size, seq len]
     timers('batch-generator').stop()
-
     output_tensor = model(tokens, position_ids, attention_mask,
                           labels=labels)
 
