@@ -101,15 +101,15 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
     blending_train_dataset = None
     if train_datasets:
         blending_train_dataset = BlendableDataset(train_datasets, weights)
-        print("---!!! length of blending_train_datasets: ", len(blending_train_dataset))
+        
     blending_valid_dataset = None
     if valid_datasets:
         blending_valid_dataset = BlendableDataset(valid_datasets, weights)
-        print("---!!! length of blending_valid_datasets: ", len(blending_valid_dataset))
+        
     blending_test_dataset = None
     if test_datasets:
         blending_test_dataset = BlendableDataset(test_datasets, weights)
-        print("---!!! length of blending_test_datasets: ", len(blending_test_dataset))
+        
 
     return (blending_train_dataset, blending_valid_dataset,
             blending_test_dataset)
@@ -161,7 +161,6 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                   documents, indexed_dataset,
                                   train_valid_test_num_samples[index],
                                   seq_length, seed)
-        print_rank_0(f'name: {name}, data prefix: {data_prefix}, starts: {splits[index]}, stop: {splits[index+1]}, tvtns: {train_valid_test_num_samples[index]}')
         return dataset
 
     train_dataset = build_dataset(0, 'train')
