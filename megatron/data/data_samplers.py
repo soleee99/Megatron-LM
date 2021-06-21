@@ -22,7 +22,7 @@ from megatron import get_args
 from megatron import mpu
 
 
-def build_pretraining_data_loader(dataset, consumed_samples):
+def  build_pretraining_data_loader(dataset, consumed_samples):
     """Buld dataloader given an input dataset."""
 
     if dataset is None:

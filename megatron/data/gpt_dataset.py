@@ -21,6 +21,7 @@ import time
 import numpy as np
 import torch
 
+from megatron import get_args
 from megatron import mpu, print_rank_0
 from megatron.data.blendable_dataset import BlendableDataset
 from megatron.data.dataset_utils import get_datasets_weights_and_num_samples
@@ -32,13 +33,16 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                     train_valid_test_num_samples,
                                     seq_length, seed, skip_warmup):
     """Build train, valid, and test datasets."""
+    args = get_args()
+    # data prefix comes in as a list type
 
+    
     # Single dataset.
     if len(data_prefix) == 1:
         return _build_train_valid_test_datasets(data_prefix[0],
                                                 data_impl, splits_string,
                                                 train_valid_test_num_samples,
-                                                seq_length, seed, skip_warmup)
+                                                seq_length, seed, skip_warmup, 3)
 
     # Blending dataset.
     # Parse the values.
@@ -46,32 +50,66 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                                   train_valid_test_num_samples)
     prefixes, weights, datasets_train_valid_test_num_samples = output
 
-    # Build individual datasets.
-    train_datasets = []
-    valid_datasets = []
-    test_datasets = []
-    for i in range(len(prefixes)):
-        train_ds, valid_ds, test_ds = _build_train_valid_test_datasets(
-            prefixes[i], data_impl, splits_string,
-            datasets_train_valid_test_num_samples[i],
-            seq_length, seed, skip_warmup)
-        if train_ds:
+    
+    if args.no_split:
+        # if no split, all inputs in data_prefix will be train data
+        train_datasets = []
+        ind = 0
+        for i in range(len(prefixes)):
+            train_ds = _build_train_valid_test_datasets(
+                prefixes[i], data_impl, splits_string,
+                datasets_train_valid_test_num_samples[i],
+                seq_length, seed, skip_warmup, 0)
             train_datasets.append(train_ds)
-        if valid_ds:
-            valid_datasets.append(valid_ds)
-        if test_ds:
-            test_datasets.append(test_ds)
+            ind = i
+
+        valid_datasets = _build_train_valid_test_datasets(
+                args.eval_path, data_impl, splits_string,
+                datasets_train_valid_test_num_samples[ind],
+                seq_length, seed, skip_warmup, 1)
+
+        test_datasets = _build_train_valid_test_datasets(
+                args.test_path, data_impl, splits_string,
+                datasets_train_valid_test_num_samples[ind],
+                seq_length, seed, skip_warmup, 2)
+        
+        blending_train_dataset = BlendableDataset(train_datasets, weights)
+        blending_valid_dataset = BlendableDataset([valid_datasets], [1])
+        blending_test_dataset = BlendableDataset([test_datasets], [1])
+
+        return (blending_train_dataset, blending_valid_dataset,
+            blending_test_dataset)
+    
+    else:
+        # Build individual datasets.
+        train_datasets = []
+        valid_datasets = []
+        test_datasets = []
+        for i in range(len(prefixes)):
+            train_ds, valid_ds, test_ds = _build_train_valid_test_datasets(
+                prefixes[i], data_impl, splits_string,
+                datasets_train_valid_test_num_samples[i],
+                seq_length, seed, skip_warmup, 0)
+            if train_ds:
+                train_datasets.append(train_ds)
+            if valid_ds:
+                valid_datasets.append(valid_ds)
+            if test_ds:
+                test_datasets.append(test_ds)
 
     # Blend.
     blending_train_dataset = None
     if train_datasets:
         blending_train_dataset = BlendableDataset(train_datasets, weights)
+        print("---!!! length of blending_train_datasets: ", len(blending_train_dataset))
     blending_valid_dataset = None
     if valid_datasets:
         blending_valid_dataset = BlendableDataset(valid_datasets, weights)
+        print("---!!! length of blending_valid_datasets: ", len(blending_valid_dataset))
     blending_test_dataset = None
     if test_datasets:
         blending_test_dataset = BlendableDataset(test_datasets, weights)
+        print("---!!! length of blending_test_datasets: ", len(blending_test_dataset))
 
     return (blending_train_dataset, blending_valid_dataset,
             blending_test_dataset)
@@ -79,13 +117,25 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
 def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                      train_valid_test_num_samples,
-                                     seq_length, seed, skip_warmup):
+                                     seq_length, seed, skip_warmup, ind_):
     """Build train, valid, and test datasets."""
+    args = get_args()
 
-    # Indexed dataset.
+    # Indexed dataset. - for 
     indexed_dataset = get_indexed_dataset_(data_prefix,
                                            data_impl,
                                            skip_warmup)
+
+    names = ['train','validation','test']
+    if(args.no_split and ind_ != 3):
+        print_rank_0(f'total of {indexed_dataset.sizes.shape[0]} documents for {data_prefix}')
+        documents = np.arange(start=0, stop=indexed_dataset.sizes.shape[0],
+                              step=1, dtype=np.int32)
+        return GPTDataset(names[ind_], data_prefix,
+                                  documents, indexed_dataset,
+                                  train_valid_test_num_samples[ind_],
+                                  seq_length, seed)
+    
 
     total_num_of_documents = indexed_dataset.sizes.shape[0]
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
@@ -111,6 +161,7 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                   documents, indexed_dataset,
                                   train_valid_test_num_samples[index],
                                   seq_length, seed)
+        print_rank_0(f'name: {name}, data prefix: {data_prefix}, starts: {splits[index]}, stop: {splits[index+1]}, tvtns: {train_valid_test_num_samples[index]}')
         return dataset
 
     train_dataset = build_dataset(0, 'train')
