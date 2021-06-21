@@ -15,6 +15,7 @@ DATA_DIR=/cmsdata/hdd2/the-pile/data
 CURR_DIR=$(pwd)
 echo $CURR_DIR
 DATA_PATH="1 ${DATA_DIR}/00_text_document 1 ${DATA_DIR}/01_text_document"
+
 CHECKPOINT_PATH=/cmsdata/hdd2/the-pile/model/testing2
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE --nnodes $NNODES --node_rank $NODE_RANK --master_addr $MASTER_ADDR --master_port $MASTER_PORT"
@@ -51,4 +52,5 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS \
        --eval-interval 1000 \
        --eval-iters 10 \
        --fp16 \
-       --no-split
+       --no-split \
+       --dataloader-type single
